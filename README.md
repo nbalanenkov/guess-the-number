@@ -41,4 +41,4 @@ Run the following command to run all tests:
 
 - Implement a frontend interface for better user interaction
 - Add user authentication and persistence for player statistics
-- Refactor WebSocket custom communication protocol
+- Refactor and improve WebSocket custom communication protocol
