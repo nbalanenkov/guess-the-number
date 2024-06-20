@@ -1,13 +1,13 @@
-package com.task.guess_the_number.handler;
+package com.task.guessnumber.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.task.guess_the_number.model.Bet;
-import org.springframework.lang.NonNull;
-import org.springframework.web.socket.CloseStatus;
+import com.task.guessnumber.model.Bet;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
-import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -15,52 +15,62 @@ import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.task.guess_the_number.util.MessageConstants.*;
+import static com.task.guessnumber.util.LoggerConstants.*;
+import static com.task.guessnumber.util.ResponseConstants.*;
+import static java.util.Objects.isNull;
+import static java.util.Objects.nonNull;
 
-public class GameSocketHandler extends TextWebSocketHandler {
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class GameSocketService {
 
+    private final Random random;
+    private final int ROUND_DELAY;
     private final Map<WebSocketSession, Bet> players = new HashMap<>();
-    private final Random random = new Random();
-    private final ObjectMapper mapper = new ObjectMapper();
     private Timer timer;
 
-    @Override
-    public void handleTextMessage(@NonNull WebSocketSession session, TextMessage message) {
+    public void handleTextMessage(WebSocketSession session, TextMessage message) {
         try {
+            ObjectMapper mapper = new ObjectMapper();
             Bet bet = mapper.readValue(message.getPayload(), Bet.class);
             String validationMessage = validateBet(session, bet);
             sendMessage(session, validationMessage);
         } catch (JsonProcessingException e) {
-            sendMessage(session, INCORRECT_BET_MESSAGE);
+            sendMessage(session, INVALID_BET_MESSAGE);
         }
     }
 
-    @Override
-    public void afterConnectionEstablished(@NonNull WebSocketSession session) {
+    public void afterConnectionEstablished(WebSocketSession session) {
         players.put(session, null);
         startGameIfNotRunning(session);
     }
 
-    @Override
-    public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) {
+    public void afterConnectionClosed(WebSocketSession session) {
         players.remove(session);
-        if(players.isEmpty()){
+        if (players.isEmpty() && nonNull(timer)) {
             resetTimer();
         }
     }
 
     private String validateBet(WebSocketSession session, Bet bet) {
-        if(players.get(session) != null){
+        if (isNameTaken(bet.getName())) {
+            return NAME_ALREADY_TAKEN;
+        } else if (nonNull(players.get(session))) {
             return ONLY_ONE_BET_ALLOWED;
-        }
-        else if (bet.getNumber() < 1 || bet.getNumber() > 10) {
-            return INCORRECT_NUMBER_RANGE;
+        } else if (bet.getNumber() < 1 || bet.getNumber() > 10) {
+            return INVALID_NUMBER_RANGE;
         } else if (bet.getBetAmount() <= 0) {
-            return INCORRECT_BET_AMOUNT;
+            return INVALID_BET_AMOUNT;
         } else {
             players.put(session, bet);
+            log.info(String.format(RECEIVED_BET, bet, session.getId()));
             return BET_ACCEPTED;
         }
+    }
+
+    private boolean isNameTaken(String name) {
+        return players.values().stream().filter(Objects::nonNull).anyMatch(player -> name.equals(player.getName()));
     }
 
     private void sendMessage(WebSocketSession session, String message) {
@@ -72,26 +82,26 @@ public class GameSocketHandler extends TextWebSocketHandler {
     }
 
     private void startGameIfNotRunning(WebSocketSession session) {
-        if (timer == null) {
+        if (isNull(timer)) {
             startGameRound();
         } else {
             sendMessage(session, GAME_ALREADY_RUNNING);
         }
     }
 
-    public void startGameRound() {
+    private void startGameRound() {
         sendMessageToAllPlayers();
         timer = new Timer();
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
                 int generatedNumber = random.nextInt(1, 11);
-                System.out.println(generatedNumber);
+                log.info(String.format(GENERATED_NUMBER, generatedNumber));
                 Map<String, BigDecimal> winners = determineWinners(generatedNumber);
                 notifyPlayers(winners, generatedNumber);
                 handleNextRoundStart();
             }
-        }, 10000);
+        }, ROUND_DELAY);
     }
 
     private void sendMessageToAllPlayers() {
@@ -103,7 +113,7 @@ public class GameSocketHandler extends TextWebSocketHandler {
     private Map<String, BigDecimal> determineWinners(int generatedNumber) {
         Map<String, BigDecimal> winners = new HashMap<>();
         for (Map.Entry<WebSocketSession, Bet> player : players.entrySet()) {
-            if (player.getValue() != null) {
+            if (nonNull(player.getValue())) {
                 String playerName = player.getValue().getName();
                 if (player.getValue().getNumber() == generatedNumber) {
                     BigDecimal winAmount = calculateWinAmount(player.getValue().getBetAmount());
@@ -119,9 +129,10 @@ public class GameSocketHandler extends TextWebSocketHandler {
     }
 
     private void notifyPlayers(Map<String, BigDecimal> winners, int generatedNumber) {
+        String tableOfWinners = getTableOfWinners(winners);
         for (Map.Entry<WebSocketSession, Bet> player : players.entrySet()) {
             String resultMessage;
-            if (player.getValue() != null) {
+            if (nonNull(player.getValue())) {
                 if (player.getValue().getNumber() == generatedNumber) {
                     resultMessage = WIN + winners.get(player.getValue().getName());
                 } else {
@@ -131,9 +142,11 @@ public class GameSocketHandler extends TextWebSocketHandler {
                 resultMessage = DID_NOT_PARTICIPATE;
             }
             sendMessage(player.getKey(), resultMessage);
-            sendMessage(player.getKey(), getTableOfWinners(winners));
+            sendMessage(player.getKey(), tableOfWinners);
             player.setValue(null);
         }
+        log.info(tableOfWinners);
+        log.info(ROUND_ENDED);
     }
 
     private String getTableOfWinners(Map<String, BigDecimal> winners) {
@@ -155,6 +168,7 @@ public class GameSocketHandler extends TextWebSocketHandler {
 
     private void handleNextRoundStart() {
         if (!players.isEmpty()) {
+            log.info(NEW_ROUND_STARTED);
             startGameRound();
         } else {
             resetTimer();

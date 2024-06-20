@@ -1,13 +1,12 @@
-package com.task.guess_the_number;
+package com.task.guessnumber;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class GuessTheNumberApplication {
+public class GuessNumberApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(GuessTheNumberApplication.class, args);
+		SpringApplication.run(GuessNumberApplication.class, args);
 	}
-
 }

@@ -1,9 +1,10 @@
-package com.task.guess_the_number.util;
+package com.task.guessnumber.util;
 
-public class MessageConstants {
-    public static final String INCORRECT_NUMBER_RANGE = "Picked number should be from 1 to 10!";
-    public static final String INCORRECT_BET_AMOUNT = "Bet amount should be more than 0!";
-    public static final String INCORRECT_BET_MESSAGE = "Incorrect bet! It should include name, number and bet amount presented in JSON format.";
+public class ResponseConstants {
+    public static final String NAME_ALREADY_TAKEN = "This name is already taken, choose another one!";
+    public static final String INVALID_NUMBER_RANGE = "Picked number should be from 1 to 10!";
+    public static final String INVALID_BET_AMOUNT = "Bet amount should be more than 0!";
+    public static final String INVALID_BET_MESSAGE = "Invalid bet! It should include name, number and bet amount presented in JSON format.";
     public static final String BET_ACCEPTED = "Bet is accepted!";
     public static final String GAME_START = "The number will be generated in 10 seconds, place your bets!";
     public static final String GAME_ALREADY_RUNNING = "The game is already running, place your bet!";

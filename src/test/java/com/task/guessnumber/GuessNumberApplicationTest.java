@@ -1,10 +1,10 @@
-package com.task.guess_the_number;
+package com.task.guessnumber;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class GuessTheNumberApplicationTests {
+class GuessNumberApplicationTest {
 
 	@Test
 	void contextLoads() {
